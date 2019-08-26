@@ -1,11 +1,16 @@
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.awt.Color;
 
 public class Main {
-
+	
 	public static void main (String [] args) throws InterruptedException
 	{		
+		
+		
+		KeystrokeTracker keyTracker = new KeystrokeTracker();
+
 		// Creating a new image to draw on
 		BufferedImage img = new BufferedImage(Render3D.viewPortXSize, Render3D.viewPortYSize, BufferedImage.TYPE_INT_RGB);
 		
@@ -14,13 +19,63 @@ public class Main {
 		// Instantiating the Render3D class
 		Render3D render = new Render3D();
 		
-		// Creating a new cube with the coordinates of (100,50,250) and a "radius" of 100
-		Heart heart1 = new Heart(0,0,2000,500);
-		Heart heart2 = new Heart(0,0,2000,500);
-
-	
-
+		Corner [] cornersArr = {
+			new Corner(500,-500,1500),
+			new Corner(500,500,1500),
+			new Corner(-500,500,1500),
+			new Corner(-500,-500,1500)
+		};
 		
+		poly p = new poly(cornersArr, new double [] {0,0,2000}, new Color(0, 200, 255));
+		
+		Corner [] cornersArr2 = {
+			new Corner(-500,-500,2500),
+			new Corner(-500,500,2500),
+			new Corner(-500,500,1500),
+			new Corner(-500,-500,1500)
+		};
+			
+		poly p2 = new poly(cornersArr2, new double [] {0,0,2000}, new Color(255, 0, 0));
+		
+		Corner [] cornersArr3 = {
+				new Corner(500,-500,2500),
+				new Corner(500,500,2500),
+				new Corner(500,500,1500),
+				new Corner(500,-500,1500)
+		};
+				
+		poly p3 = new poly(cornersArr3, new double [] {0,0,2000}, new Color(255, 200, 0));
+			
+		Corner [] cornersArr4 = {
+			new Corner(-500,500,2500),
+			new Corner(-500,-500,2500),
+			new Corner(500,-500,2500),
+			new Corner(500,500,2500)
+		};
+				
+		poly p4 = new poly(cornersArr4, new double [] {0,0,2000}, new Color(0, 0, 255));
+			
+		
+		Corner [] cornersArrFloor = {
+				new Corner(-2000,1000,5000),
+				new Corner(2000,1000,5000),
+				new Corner(2000,1000,1000),
+				new Corner(-2000,1000,1000)
+
+			};
+		
+		
+		poly pFloor = new poly(cornersArrFloor, new double [] {0,0,2000}, new Color(0, 0, 0));
+
+		poly [] polys = new poly[] {p,p2,p3,p4,pFloor};
+	
+		
+		// X <---->
+		// Y ^
+		// Z forward / back
+		
+		
+
 		//Creates the GUI to see the image in real time
 		JFrame frame = new JFrame();
 		frame.getContentPane().setLayout(new FlowLayout());
@@ -30,33 +85,42 @@ public class Main {
 		frame.setVisible(true);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		
-		heart1.rotate(Math.PI/2, 0, 0);
-		heart2.rotate(Math.PI/2, Math.PI/2, 0);
 		
-		double totalRotation = 0;
-		while (true) // keeps going forever
-		{	        
-			
+		double [] userLocation = new double[] {0,0,0};
+		
+		
+		while(true)
+		{
 			Graphics2D g2d = img.createGraphics();
 
 			g2d.setPaint ( Color.WHITE );
 			g2d.fillRect ( 0, 0, img.getWidth(), img.getHeight() );
-			//cube.moveCenter(new double [] {75 * Math.sin(2 * totalRotation),75 * Math.cos(2 * totalRotation),0}); 
-			// Distance to translate the cube
 			
-			heart1.rotate(0,Math.PI/100, 0); // Angles to rotate the cube on
-			heart2.rotate(0,Math.PI/100, 0); // Angles to rotate the cube on
+			g2d.drawImage(ReadFile.readImageDesktop(""), null, 0, 0);
 
-			img = render.drawPoints(heart1.getCorners(), img);	// redraws points
-			img = render.drawPoints(heart2.getCorners(), img);	// redraws points
-				        
+			
+			double [] direction = keyTracker.getDirection();	
+			
+			userLocation[0] += direction[0];
+			userLocation[1] += direction[1];
+			userLocation[2] += direction[2];
+			
+			// translates and rotates polys
+
+			p.rotate(new double[] {Math.PI/100, Math.PI/100, 0}, p.centerXYZ);
+			p2.rotate(new double[] {Math.PI/100, Math.PI/100, 0}, p2.centerXYZ);
+			p3.rotate(new double[] {Math.PI/100, Math.PI/100, 0}, p3.centerXYZ);
+			p4.rotate(new double[] {Math.PI/100, Math.PI/100, 0}, p4.centerXYZ);
+
+						
+			double [] lookAngles = keyTracker.getLookAngles();
+		
+			img = render.drawPolys(polys, img, lookAngles, userLocation);
+			
 			view.setIcon(new ImageIcon(img)); //updates the image in the GUI
 			
-			totalRotation += Math.PI/100;
-			img = new BufferedImage(Render3D.viewPortXSize, Render3D.viewPortYSize, BufferedImage.TYPE_INT_RGB);
-			
-			Thread.sleep(25);
-		} // end 
+			Thread.sleep(10);
+		}
 	}
 	
 }

@@ -1,35 +1,43 @@
-import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Graphics2D;
+import java.awt.MouseInfo;
+import java.awt.Point;
+import java.awt.PointerInfo;
+import java.awt.Toolkit;
 import java.awt.image.BufferedImage;
+import java.util.Arrays;
 
 public class Render3D extends Thread
 {
-	public Render3D() // constructor
+	public Render3D()
 	{
 		
 	}
 	
-	public int[] viewPoint = new int [] {0,0,0};
-	public int[] viewportPlane = new int [] {0,0,1,300};
+	public double[] viewPoint = new double [] {0,0,0};
+	public double[] viewportPlane = new double [] {0,0,1,500}; // one of these is depricated
 	
-	public static final int viewPortXSize = 1000;
+	public double[] viewportPlaneInit = new double [] {0,0,1,300};
+		
+	public static final int viewPortXSize = 1500;
 	public static final int viewPortYSize = 1000;
 	
 	// xyzOfPoint : (x,y,z) 
-	// planeEquation ax + by + cz = n : (a,b,c,n)
+	// planeEquation a(x + c1) + b(y + c2) + c(z + c3) = n : (a,b,c,n) , (c1,c2,c3)
+	// 
 	// cameraLocation : (x,y,z)
 	
-	private double [] getIntersection(int [] xyzOfPoint, int [] planeEquation, int [] cameraLocation) 
+	private int[] getIntersection(double [] xyzOfPoint, double [] planeEquation, double [] cameraLocation, double [] XYLookAngles) 
 	{
 		// finds the slope between the point in space and the camera location for each dimension
-		int lineSlopeX = xyzOfPoint[0] - cameraLocation[0];
-		int lineSlopeY = xyzOfPoint[1] - cameraLocation[1];
-		int lineSlopeZ = xyzOfPoint[2] - cameraLocation[2];
+		double lineSlopeX = xyzOfPoint[0] - cameraLocation[0];
+		double lineSlopeY = xyzOfPoint[1] - cameraLocation[1];
+		double lineSlopeZ = xyzOfPoint[2] - cameraLocation[2];
 		
 		// makes the eqution for the vector in parametric form
-		int [] lnEquX = new int [] {cameraLocation[0], lineSlopeX};
-		int [] lnEquY = new int [] {cameraLocation[1], lineSlopeY};
-		int [] lnEquZ = new int [] {cameraLocation[2], lineSlopeZ};
+		double [] lnEquX = new double [] {0, lineSlopeX};
+		double [] lnEquY = new double [] {0, lineSlopeY};
+		double [] lnEquZ = new double [] {0, lineSlopeZ};
 	
 		// solving for the lambda
 		double lambdaTop = planeEquation[3] - (planeEquation[0] * lnEquX[0] + planeEquation[1] * lnEquY[0] + planeEquation[2] * lnEquZ[0]);
@@ -41,47 +49,78 @@ public class Render3D extends Thread
 		double intersectionY = lnEquY[0] + lnEquY[1] * lambda;
 		double intersectionZ = lnEquZ[0] + lnEquZ[1] * lambda;
 		
+		System.out.println(lambda > 0);
+		
+		if (lambda < 0) {
+			return null;
+		}
+		
 		// returns the coordinates in an array
-		return new double [] {intersectionX,intersectionY,intersectionZ};
+		return new int [] {(int) intersectionX,(int) intersectionY,(int) intersectionZ};
 	}
 	
-	public BufferedImage drawPoints(Corner [] corners, BufferedImage img)
+	// 3D points must already be calculated
+	public BufferedImage drawPoly(poly polygon, BufferedImage img, double [] lookAngles, double [] userLoc)
 	{
-		// Creates a new "Drawer"
 		Graphics2D g = img.createGraphics();
 	
+		g.setColor(polygon.color);
+		
+		Corner [] corners = polygon.corners;
+				
+		int [] screenLocationsX = new int[corners.length];
+		int [] screenLocationsY = new int[corners.length];
+	
+		boolean draw = true;
+		
 		for ( int i = 0; i < corners.length; i ++) //runs what is next for every corner in the input
 		{
 			// gets the location of the point in 3D space
-			int [] pXYZ = corners[i].locationXYZ;
+			double [] pXYZ = corners[i].locationIJK.clone();
+			
+			//offset based on user location
+			pXYZ[0] -= userLoc[0];
+			pXYZ[1] -= userLoc[1];
+			pXYZ[2] -= userLoc[2];
+			
+			Corner c = new Corner(pXYZ[0],pXYZ[1], pXYZ[2]);
+			
+			//somethings really fucked up with the coords will fix later (probably not tho)
+			pXYZ = c.rotateCornerGet(lookAngles[1], -lookAngles[0],0, new double[] {0,0,0});
 			
 			// calls the method which calculates where a vector drawn from the origin to the point in 3D Space would intersect with the viewport plane
-			double [] screenLocations = getIntersection(pXYZ, viewportPlane, viewPoint);
+			int [] locxy = getIntersection(pXYZ, viewportPlane, viewPoint, lookAngles);
 			
-			// tells the corner where it is on the screen
-			corners[i].screenLocations = screenLocations;
-		}
-		
-		
-		for (int i = 0; i < corners.length; i++) //runs what is next for every corner in the input
-		{
-			for (int n = 0; n < corners[i].neighbors.size(); n ++) //runs what is next for every neighbor a particular corner
+			if(locxy == null)
 			{
-				// gets the screenlocations from the corner
-				int x1 = (int) (corners[i].screenLocations[0]);
-				int y1 = (int) (corners[i].screenLocations[1]);
-				
-				// gets the screenlocations from a neighbor
-				int x2 = (int) (corners[i].neighbors.get(n).screenLocations[0]);
-				int y2 = (int) (corners[i].neighbors.get(n).screenLocations[1]);
-	
-				g.setColor(Color.RED);
-				
-				// draws a line between them
-				// 0,0 would be drawn at the top left corner of the image so I have to add Render3D.viewPortXSize/2 to make 0,0 the center of the image
-				g.drawLine(x1 + Render3D.viewPortXSize/2,y1 + Render3D.viewPortYSize/2,x2 + Render3D.viewPortXSize/2,y2+ Render3D.viewPortYSize/2);
+				draw = false;
+				break;
+			}
+			else
+			{
+				// tells the corner where it is on the screen
+				screenLocationsX[i] = locxy[0] + (viewPortXSize/2);
+				screenLocationsY[i] = locxy[1] + (viewPortYSize/2);	
 			}
 		}
+		
+		if (draw)
+		{
+			g.fillPolygon(screenLocationsX, screenLocationsY, screenLocationsY.length);		
+		}		
+		
 		return img;
 	}
+	
+	public BufferedImage drawPolys(poly[]polys, BufferedImage img, double [] lookAngles, double [] userLoc)
+	{
+		Arrays.sort(polys, (a,b) -> a.getFurthestCorner().isFurtherThan(b.getFurthestCorner()));
+		
+		for (int i = 0; i < polys.length; i ++)
+		{
+			img = drawPoly(polys[i], img, lookAngles, userLoc);
+		}
+		
+		return img;
+	}	
 }

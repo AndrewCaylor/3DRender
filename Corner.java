@@ -1,28 +1,19 @@
-import java.util.ArrayList;
+import java.util.Arrays;
 
 public class Corner {
-
+	
+	// ROTATES AROUND 000
+	// TODO: be able to rotate around not 0,0,0
+	// subtract point you want to rotate around then add the value back after rotated
+	
 	// THIS IS A UNIT COORDS (USED FOR ROTATING)
-	// ROTATION IS DONE AT 0,0,0
 	
 	static final int I = 0;
 	static final int J = 1;
 	static final int K = 2;
 	
-	double [] locationIJK = new double [3]; 
-	
-	// REAL COORDS OF LOCATION USED FOR DRAWING
-	int [] locationXYZ = new int [3]; 
-	
-	// LOCATIONS OF POINT ON THE SCREEN
-	double [] screenLocations = new double [2];
-	static final int X = 0;
-	static final int Y = 1;
+	public double [] locationIJK = new double [3]; 
 		
-	ArrayList<Corner> neighbors;
-	
-	//Corner [] neighbors;
-	
 	String [][] xRotationMatrixData = new String [][] {
 		{"1",  "0","0"   },
 		{"0","cos","-sin"},
@@ -41,9 +32,11 @@ public class Corner {
 		{"0"  ,"0"   ,"1"}
 	};
 	
+	
 	double [][] xRotationMatrix = new double [3][3];
 	double [][] yRotationMatrix = new double [3][3];
 	double [][] zRotationMatrix = new double [3][3];
+	
 	
 	double [][][] matrices = new double [][][] {xRotationMatrix,yRotationMatrix,zRotationMatrix};
 	String [][][] matricesData = new String [][][] {xRotationMatrixData,yRotationMatrixData,zRotationMatrixData};
@@ -54,20 +47,9 @@ public class Corner {
 		locationIJK[J] = j;
 		locationIJK[K] = k;
 	}
-	
-	public void setNeighbors(Corner... corners )
-	{
-		ArrayList<Corner> temp = new ArrayList<Corner>();
-		for (int i = 0; i < corners.length; i ++) temp.add(corners[i]);
-		neighbors = temp;
-	}
-	
-	public ArrayList<Corner> getNeighbors()
-	{
-		return neighbors;
-	}
-	
-	public void rotateCorner(double angleX, double angleY, double angleZ)
+
+
+	public void rotateCornerSet(double angleX, double angleY, double angleZ, double [] centerXYZ)
 	{
 		double [] angles = new double [] {angleX, angleY, angleZ};
 		
@@ -76,23 +58,71 @@ public class Corner {
 			makeRotationMatrix(matricesData[ind], matrices[ind], angles[ind]);
 		}
 		
-		for (int ind = 0; ind < 3; ind ++)
+		for (int ind = 0; ind < matrices.length; ind ++) // applies rotation matrix for each rotation axis
 		{
+			double [] tempLocationIJK = new double[3];
+			
+			// subtracts the center location from current location to allow it to rotate around any point
+			// automatically rotates around 0,0,0
+			
+			tempLocationIJK[I] = locationIJK[I] - centerXYZ[I];
+			tempLocationIJK[J] = locationIJK[J] - centerXYZ[J];
+			tempLocationIJK[K] = locationIJK[K] - centerXYZ[K];
+			
 			// i need temps because it uses the matrix for future computations
 			
-			double newi = dotProduct(locationIJK,matrices[ind][I]);
-			double newj = dotProduct(locationIJK,matrices[ind][J]);
-			double newk = dotProduct(locationIJK,matrices[ind][K]);
+			double newi = dotProduct(tempLocationIJK,matrices[ind][I]);
+			double newj = dotProduct(tempLocationIJK,matrices[ind][J]);
+			double newk = dotProduct(tempLocationIJK,matrices[ind][K]);
 			
-			locationIJK[I] = newi;
-			locationIJK[J] = newj;
-			locationIJK[K] = newk;
+			//adding center back in after rotation
 			
+			locationIJK[I] = newi + centerXYZ[I];
+			locationIJK[J] = newj + centerXYZ[J];
+			locationIJK[K] = newk + centerXYZ[K];
 		}
 	}
 	
 
-	// THIS WORKS
+	public double [] rotateCornerGet(double angleX, double angleY, double angleZ, double [] centerXYZ)
+	{
+		double [] angles = new double [] {angleX, angleY, angleZ};
+		
+		for (int ind = 0; ind < 3; ind ++)
+		{
+			makeRotationMatrix(matricesData[ind], matrices[ind], angles[ind]);
+		}
+		
+		double [] locationIJKtemp = locationIJK.clone();
+		
+		for (int ind = 0; ind < matrices.length; ind ++) // applies rotation matrix for each rotation axis
+		{
+			double [] tempLocationIJK = new double[3];
+			
+			// subtracts the center location from current location to allow it to rotate around any point
+			// automatically rotates around 0,0,0
+			
+			tempLocationIJK[I] = locationIJKtemp[I] - centerXYZ[I];
+			tempLocationIJK[J] = locationIJKtemp[J] - centerXYZ[J];
+			tempLocationIJK[K] = locationIJKtemp[K] - centerXYZ[K];
+			
+			// i need temps because it uses the matrix for future computations
+			
+			double newi = dotProduct(tempLocationIJK,matrices[ind][I]);
+			double newj = dotProduct(tempLocationIJK,matrices[ind][J]);
+			double newk = dotProduct(tempLocationIJK,matrices[ind][K]);
+			
+			//adding center back in after rotation
+			
+			locationIJKtemp[I] = newi + centerXYZ[I];
+			locationIJKtemp[J] = newj + centerXYZ[J];
+			locationIJKtemp[K] = newk + centerXYZ[K];
+		}
+		
+		return locationIJKtemp;
+	}
+	
+	
 	public void makeRotationMatrix(String [][] strArr, double [][] dubArr, double theta) 
 	{
 		for (int x = 0; x < strArr.length; x ++)
@@ -104,7 +134,6 @@ public class Corner {
 		}
 	}
 	
-	// IDK
 	public double dotProduct(double [] ijk, double [] matrix)
 	{
 		double total = 0;
@@ -115,7 +144,23 @@ public class Corner {
 		return total;
 	}
 	
-	//THIS WORKS
+	public int isFurtherThan(Corner c)
+	{
+		if (locationIJK[K] < c.locationIJK[K])
+		{
+			return 1;
+		}
+		else if (locationIJK[K] > c.locationIJK[K])
+		{
+			return -1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	
+	// uses string value of rotation matrix entry to make calculations
 	public double evaluateMatrixDataEntry(String str, double angle) //num1 comes from current IJK ; num2 comes from rotation matrix
 	{
 		if (str.contains("sin"))
